@@ -1,0 +1,308 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>边缘推理实时看板 · STM32F103 调制识别</title>
+<style>
+  :root {
+    --bg: #0a1120;
+    --card: #111c31;
+    --card2: #0e1728;
+    --line: #1f2f4a;
+    --text: #e6edf7;
+    --muted: #8fa3bf;
+    --cyan: #22d3ee;
+    --green: #34d399;
+    --red: #f87171;
+    --amber: #fbbf24;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 24px; background:
+      radial-gradient(1200px 600px at 15% -10%, #16304f 0%, transparent 60%),
+      radial-gradient(900px 500px at 110% 10%, #0f2740 0%, transparent 55%),
+      var(--bg);
+    color: var(--text);
+    font-family: "Segoe UI", "Microsoft YaHei", system-ui, sans-serif;
+    min-height: 100vh;
+  }
+  header {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 16px; flex-wrap: wrap; margin-bottom: 20px;
+  }
+  h1 { font-size: 22px; margin: 0; letter-spacing: .5px; }
+  h1 .sub { font-size: 13px; color: var(--muted); font-weight: 400; margin-left: 10px; }
+  .status {
+    display: flex; align-items: center; gap: 8px;
+    padding: 8px 14px; border-radius: 999px;
+    background: var(--card); border: 1px solid var(--line); font-size: 13px;
+  }
+  .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--red); }
+  .dot.on { background: var(--green); box-shadow: 0 0 10px var(--green); }
+  .grid {
+    display: grid; gap: 16px;
+    grid-template-columns: 1.1fr .9fr;
+    grid-template-areas:
+      "hero latency"
+      "probs info"
+      "history history";
+  }
+  .card {
+    background: linear-gradient(180deg, var(--card) 0%, var(--card2) 100%);
+    border: 1px solid var(--line); border-radius: 16px; padding: 18px 20px;
+    box-shadow: 0 8px 24px rgba(0,0,0,.25);
+  }
+  .card .label {
+    font-size: 12px; color: var(--muted); letter-spacing: 1px;
+    text-transform: uppercase; margin-bottom: 10px;
+  }
+  #hero { grid-area: hero; display: flex; flex-direction: column; justify-content: center; }
+  .big {
+    font-size: 54px; font-weight: 700; line-height: 1.05;
+    font-family: "Cascadia Code", Consolas, monospace;
+    color: var(--cyan); text-shadow: 0 0 24px rgba(34,211,238,.25);
+  }
+  .big.small { font-size: 40px; color: var(--amber); }
+  .unit { font-size: 16px; color: var(--muted); margin-left: 6px; }
+  .row { display: flex; align-items: center; gap: 12px; margin-top: 10px; flex-wrap: wrap; }
+  .badge {
+    padding: 4px 12px; border-radius: 999px; font-size: 13px; font-weight: 600;
+    border: 1px solid transparent;
+  }
+  .badge.ok { color: var(--green); background: rgba(52,211,153,.12); border-color: rgba(52,211,153,.4); }
+  .badge.bad { color: var(--red); background: rgba(248,113,113,.12); border-color: rgba(248,113,113,.4); }
+  .badge.wait { color: var(--muted); background: rgba(143,163,191,.1); border-color: var(--line); }
+  .meta { color: var(--muted); font-size: 13px; margin-top: 8px; }
+  .meta b { color: var(--text); font-weight: 600; }
+  #latency { grid-area: latency; display: flex; flex-direction: column; }
+  #spark { width: 100%; height: 84px; margin-top: 8px; }
+  #probs { grid-area: probs; }
+  .bar-row { display: grid; grid-template-columns: 78px 1fr 64px; gap: 10px;
+             align-items: center; margin: 7px 0; font-size: 13px; }
+  .bar-name { color: var(--muted); font-family: Consolas, monospace; }
+  .bar-track { height: 10px; background: #0a1626; border-radius: 999px; overflow: hidden; }
+  .bar-fill { height: 100%; width: 0%; border-radius: 999px;
+              background: linear-gradient(90deg, #0ea5b7, var(--cyan));
+              transition: width .35s ease; }
+  .bar-row.top .bar-name { color: var(--cyan); font-weight: 700; }
+  .bar-row.top .bar-fill { background: linear-gradient(90deg, var(--green), var(--cyan)); }
+  .bar-val { text-align: right; font-family: Consolas, monospace; color: var(--muted); }
+  .bar-row.top .bar-val { color: var(--text); }
+  #info { grid-area: info; }
+  .kv { display: grid; grid-template-columns: 88px 1fr; gap: 6px 10px; font-size: 13px; }
+  .kv div:nth-child(odd) { color: var(--muted); }
+  .kv div:nth-child(even) { font-family: Consolas, monospace; color: var(--text); }
+  #history { grid-area: history; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--line); }
+  th { color: var(--muted); font-weight: 500; }
+  td { font-family: Consolas, monospace; }
+  td.ok { color: var(--green); }
+  td.bad { color: var(--red); }
+  footer { margin-top: 18px; color: var(--muted); font-size: 12px; line-height: 1.7; }
+  .pill { display:inline-block; padding:1px 8px; border-radius: 999px;
+          background: rgba(34,211,238,.1); color: var(--cyan); font-size: 12px; }
+  @media (max-width: 900px) {
+    .grid { grid-template-columns: 1fr;
+            grid-template-areas: "hero" "latency" "probs" "info" "history"; }
+    .big { font-size: 40px; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>边缘推理实时看板<span class="sub">STM32F103ZET6 · int8 CNN 调制识别 · 结果回传 PC</span></h1>
+  <div class="status"><span id="dot" class="dot"></span><span id="conn">连接中…</span></div>
+</header>
+
+<main class="grid">
+  <section class="card" id="hero">
+    <div class="label">当前识别结果</div>
+    <div id="predName" class="big">—</div>
+    <div class="row">
+      <span class="badge wait" id="matchBadge">等待数据…</span>
+      <span class="meta" id="predIdx"></span>
+    </div>
+    <div class="meta">真实标签：<b id="trueName">—</b>　置信度：<b id="conf">—</b></div>
+  </section>
+
+  <section class="card" id="latency">
+    <div class="label">单次推理时延 · 板上 DWT 实测</div>
+    <div><span id="latMs" class="big small">—</span><span class="unit">ms</span></div>
+    <div class="meta" id="latCycles">—</div>
+    <canvas id="spark"></canvas>
+    <div class="meta" style="font-size:12px">最近 60 帧 avg 时延（ms）</div>
+  </section>
+
+  <section class="card" id="probs">
+    <div class="label">11 类概率（板端 int8 推理输出）</div>
+    <div id="bars"></div>
+  </section>
+
+  <section class="card" id="info">
+    <div class="label">板端信息</div>
+    <div class="kv">
+      <div>模型</div><div id="iModel">—</div>
+      <div>输入</div><div id="iInput">—</div>
+      <div>时钟</div><div id="iClock">—</div>
+      <div>帧数</div><div id="iFrames">—</div>
+      <div>更新</div><div id="iUpdated">—</div>
+      <div>链路</div><div id="iLink">—</div>
+    </div>
+  </section>
+
+  <section class="card" id="history">
+    <div class="label">最近识别记录</div>
+    <table>
+      <thead><tr><th>时间</th><th>预测</th><th>真实</th><th>置信度</th><th>时延(ms)</th><th>结果</th></tr></thead>
+      <tbody id="histBody"><tr><td colspan="6" style="color:#8fa3bf">等待板子数据…</td></tr></tbody>
+    </table>
+  </section>
+</main>
+
+<footer>
+  <span class="pill">数据链路</span> STM32F103ZET6 —USART1/CH340→ PC —HTTP→ 浏览器；
+  结果由板端 <b>model_forward()</b>（int8，3,195 参数）计算，时延为板上 DWT CYCCNT 实测。
+  <br><span class="pill">模型精度</span> 5 折交叉验证 58.5%（int8 58.2%），11 类调制识别（RadioML，SNR -10~30 dB）。
+</footer>
+
+<script>
+const N_CLASSES = 11;
+let lastFrameCount = -1;
+const el = (id) => document.getElementById(id);
+
+function fmt(n, d = 2) {
+  return (n === null || n === undefined || isNaN(n)) ? "—" : Number(n).toFixed(d);
+}
+
+async function poll() {
+  try {
+    const r = await fetch("/api/state", { cache: "no-store" });
+    const s = await r.json();
+    render(s);
+  } catch (e) {
+    el("conn").textContent = "服务未连接";
+    el("dot").className = "dot";
+  }
+}
+
+function render(s) {
+  const connected = !!s.connected;
+  el("dot").className = "dot" + (connected ? " on" : "");
+  el("conn").textContent = connected ? ("已连接 · " + (s.source || "")) : ("未连接 · " + (s.source || "等待中"));
+  el("iLink").textContent = s.source || "—";
+  el("iModel").textContent = s.model || "—";
+  el("iInput").textContent = s.input && s.input[1] ? `${s.input[0]} x ${s.input[1]} int8` : "—";
+  el("iClock").textContent = s.clock_hz ? (s.clock_hz / 1e6).toFixed(0) + " MHz (" + (s.clock_src || "?") + ")" : "—";
+  el("iFrames").textContent = s.frame_count ?? "—";
+
+  if (!s.history || s.history.length === 0) {
+    el("predName").textContent = "—";
+    el("matchBadge").textContent = "等待数据…";
+    el("matchBadge").className = "badge wait";
+    return;
+  }
+
+  const classes = s.classes || [];
+  const pred = s.pred ?? 0;
+  const name = s.pred_name || classes[pred] || ("class " + pred);
+  el("predName").textContent = name;
+  el("predIdx").textContent = "class " + pred + " / " + (classes.length || N_CLASSES);
+  el("conf").textContent = (s.confidence * 100).toFixed(1) + "%";
+  el("trueName").textContent = (s.true !== undefined && classes[s.true]) ? classes[s.true] : "—";
+
+  const badge = el("matchBadge");
+  if (s.match === true) { badge.textContent = "MATCH · 与 PC 参考一致"; badge.className = "badge ok"; }
+  else if (s.match === false) { badge.textContent = "MISMATCH"; badge.className = "badge bad"; }
+  else { badge.textContent = "—"; badge.className = "badge wait"; }
+
+  // 时延
+  if (s.lat_us) {
+    el("latMs").textContent = (s.lat_us.avg / 1000).toFixed(2);
+    el("latCycles").textContent = `${s.lat_cycles.avg.toLocaleString()} cycles  (min ${s.lat_cycles.min.toLocaleString()} / max ${s.lat_cycles.max.toLocaleString()})`;
+  }
+  el("iUpdated").textContent = s.ts ? new Date(s.ts * 1000).toLocaleTimeString() : "—";
+
+  // 概率条
+  const probs = s.probs || [];
+  const bars = el("bars");
+  if (bars.children.length !== (classes.length || N_CLASSES)) {
+    bars.innerHTML = "";
+    const n = classes.length || N_CLASSES;
+    for (let i = 0; i < n; i++) {
+      const row = document.createElement("div");
+      row.className = "bar-row";
+      row.id = "bar" + i;
+      row.innerHTML = `<div class="bar-name">${classes[i] || ("c" + i)}</div>
+                       <div class="bar-track"><div class="bar-fill" id="fill${i}"></div></div>
+                       <div class="bar-val" id="val${i}">—</div>`;
+      bars.appendChild(row);
+    }
+  }
+  const maxP = Math.max(...probs, 1e-6);
+  for (let i = 0; i < (classes.length || N_CLASSES); i++) {
+    const p = probs[i] ?? 0;
+    el("fill" + i).style.width = (p * 100).toFixed(1) + "%";
+    el("val" + i).textContent = (p * 100).toFixed(1) + "%";
+    el("bar" + i).className = "bar-row" + (i === pred ? " top" : "");
+  }
+
+  // 最新记录（帧数变化时才重绘）
+  if (s.frame_count !== lastFrameCount) {
+    lastFrameCount = s.frame_count;
+    const body = el("histBody");
+    const rows = [...s.history].reverse().slice(0, 8).map((h) => {
+      const t = new Date(h.t * 1000).toLocaleTimeString();
+      const ok = (h.pred === h.true);
+      return `<tr><td>${t}</td><td>${classes[h.pred] ?? h.pred}</td><td>${classes[h.true] ?? h.true}</td>
+              <td>${(h.conf * 100).toFixed(1)}%</td><td>${fmt(h.us / 1000)}</td>
+              <td class="${ok ? "ok" : "bad"}">${ok ? "MATCH" : "MISMATCH"}</td></tr>`;
+    }).join("");
+    body.innerHTML = rows || `<tr><td colspan="6" style="color:#8fa3bf">暂无记录</td></tr>`;
+  }
+
+  drawSpark(s.history || []);
+}
+
+function drawSpark(history) {
+  const cv = el("spark");
+  const dpr = window.devicePixelRatio || 1;
+  const w = cv.clientWidth || 480, h = cv.clientHeight || 84;
+  if (cv.width !== w * dpr) { cv.width = w * dpr; cv.height = h * dpr; }
+  const ctx = cv.getContext("2d");
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, w, h);
+  const vals = history.map((x) => x.us / 1000).filter((v) => v > 0);
+  if (vals.length < 2) return;
+  const min = Math.min(...vals), max = Math.max(...vals);
+  const pad = 8;
+  const center = (min + max) / 2;
+  const span = Math.max(max - min, 0.4);   // 数值几乎不变时也保持居中，不贴底
+  const x = (i) => pad + (i / (vals.length - 1)) * (w - 2 * pad);
+  const y = (v) => h / 2 - ((v - center) / span) * (h - 2 * pad);
+
+  const g = ctx.createLinearGradient(0, 0, 0, h);
+  g.addColorStop(0, "rgba(34,211,238,.35)");
+  g.addColorStop(1, "rgba(34,211,238,0)");
+  ctx.beginPath();
+  ctx.moveTo(x(0), h - pad);
+  vals.forEach((v, i) => ctx.lineTo(x(i), y(v)));
+  ctx.lineTo(x(vals.length - 1), h - pad);
+  ctx.closePath();
+  ctx.fillStyle = g;
+  ctx.fill();
+
+  ctx.beginPath();
+  vals.forEach((v, i) => i ? ctx.lineTo(x(i), y(v)) : ctx.moveTo(x(i), y(v)));
+  ctx.strokeStyle = "#22d3ee";
+  ctx.lineWidth = 1.8;
+  ctx.stroke();
+}
+
+poll();
+setInterval(poll, 500);
+</script>
+</body>
+</html>
+

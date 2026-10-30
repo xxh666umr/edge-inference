@@ -1,0 +1,23 @@
+﻿# 构建产物 / 缓存
+*.obj
+*.o
+*.exe
+*.pdb
+*.ilk
+__pycache__/
+*.pyc
+firmware/build/
+
+# 数据集（约 7 MB，按需下载；保留 data/README.md 说明来源）
+data/*.parquet
+
+# 临时探测目录
+tmp/
+
+# 本机依赖副本（pyserial 等），不入库
+.deps/
+
+# 大数据集（自行下载，不入库）
+data/*.pkl
+data/*.tar.bz2
+data/*.dat
