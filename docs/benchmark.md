@@ -1,9 +1,9 @@
 # Benchmark：int8 tiny CNN 在 PC 与 STM32F103ZET6 上的推理开销
 
-> 模型：RadioML 11 类调制识别 tiny CNN（3,195 参数，输入 2×126 int8），详见
+> 模型：RadioML 2016.10a 11 类调制识别 tiny CNN（3,195 参数，输入 2×128 int8），详见
 > [phase2_调制识别模型.md](phase2_调制识别模型.md)。
-> **结论：PC ≈30 µs / 次；STM32F103ZET6 @72 MHz 实测 1,113,032 cycles ≈ 15.5 ms / 次**
-> （DWT CYCCNT；优化前 33.2 ms，**降低 53.4%**）。
+> **结论：PC ≈50 µs / 次；STM32F103ZET6 @72 MHz 实测 1,115,788 cycles ≈ 15.5 ms / 次**
+> （DWT CYCCNT；优化前 33.2 ms，**降低 53%**）。
 
 ## 1. 硬件与工具链
 
@@ -20,13 +20,13 @@
 
 ```
    text    data     bss     dec     hex
-  29120     460   14216   43796    ab14   firmware.elf   # 含 .ramfunc 与分阶段 benchmark
+  29136     460   14384   43980    abcc   firmware.elf   # 含 .ramfunc 与分阶段 benchmark
 ```
 
 | 项 | 数值 | 占芯片 |
 |---|---|---|
-| Flash（text+data） | **29,580 B** | 5.79% / 512 KiB |
-| RAM（data + bss + .ramfunc） | **15,628 B** | 23.85% / 64 KiB |
+| Flash（text+data） | **29,596 B** | 5.78% / 512 KiB |
+| RAM（data + bss + .ramfunc） | **15,796 B** | 24.1% / 64 KiB |
 | 其中模型权重/偏置 | 3,372 B（Flash） | W_CONV1 224 + B_CONV1 64 + W_CONV2 2560 + B_CONV2 128 + W_FC 352 + B_FC 44 |
 | `model_forward` 静态 buffer | 7,628 B（RAM .bss） | acc1 3840 + act1 960 + pool1 480 + acc2 1664 + act2 416 + pool2 192 + gap 32 + logits 44 |
 | `.ramfunc`（SRAM 热循环代码） | **952 B**（RAM，LMA 在 Flash） | conv1d / maxpool / avgpool / fc / requantize_fx |
@@ -40,8 +40,8 @@
 
 | 项 | 数值 |
 |---|---|
-| 单次 `model_forward` | **≈30 µs**（1000 次平均；多次运行 24~32 µs） |
-| 输出 | argmax=0（AM-DSB），与量化参考逐位一致 |
+| 单次 `model_forward` | **≈50 µs**（1000 次平均；输入 2×128） |
+| 输出 | argmax=9（QPSK），与量化参考逐位一致 |
 
 ### 3.2 STM32F103 @72 MHz（板上 DWT 实测）
 
@@ -49,26 +49,27 @@
 |---|---|---|---|
 | ① 初始（float requantize，代码在 Flash） | 2,391,847 | 33.2 ms | — |
 | ② ① + **requantize 定点化** | 1,731,469 | 24.0 ms | −27.6% |
-| ③ ② + **热循环搬 SRAM 执行** | **1,113,032** | **15.5 ms** | **−53.4%** |
+| ③ ② + **热循环搬 SRAM 执行**（旧 2×126 模型） | 1,113,032 | 15.46 ms | −53.4% |
+| ④ **2016.10a 部署模型（2×128）** | **1,115,788** | **15.50 ms** | **−53.4%** |
 
-> 每帧 `min = max = avg`（误差 ±1 cycle），测量非常稳定；分类结果均为 pred=0 MATCH，
-> 且与 PC/numpy 的 11 类概率完全一致（`tests/test_model_parity.py` 550/550）。
+> 每帧 `min = max = avg`（误差 ±1 cycle），测量非常稳定；分类结果 pred=9 MATCH，
+> 且与 PC/numpy 的 11 类概率完全一致（`tests/test_model_parity.py` 300/300）。
 
 ### 3.3 分阶段实测拆分（最终配置，每项 100 次平均）
 
 | 阶段 | cycles | 占比 |
 |---|---|---|
-| conv2（32×13×16×5 MAC） | 652,592 | **58.6%** |
-| conv1（16×60×2×7 MAC） | 274,452 | 24.7% |
-| softmax（11 类，double exp） | 34,767 | 3.1% |
-| requantize1（960 元素，定点） | 28,910 | 2.6% |
-| requantize2（416 元素，定点） | 12,590 | 1.1% |
-| avgpool / pool1 / pool2 / fc | 42,519 | 3.8% |
-| 调用/循环等其余开销 | 67,202 | 6.0% |
+| conv2（32×13×16×5 MAC） | 652,595 | **58.5%** |
+| conv1（16×61×2×7 MAC） | 279,014 | 25.0% |
+| softmax（11 类，double exp） | 34,776 | 3.1% |
+| requantize1（976 元素，定点） | 29,384 | 2.6% |
+| requantize2（416 元素，定点） | 12,595 | 1.1% |
+| avgpool / pool1 / pool2 / fc | 42,490 | 3.8% |
+| 调用/循环等其余开销 | 64,914 | 5.8% |
 
 关键对比：
-- `requantize` 单算子：**326,505 → 28,904 cycles（11.3×）**，去掉了 int↔float 软浮点调用；
-- conv1/conv2 搬 SRAM 后：**452,986 → 274,452**（−39.4%）、**1,068,561 → 652,592**（−38.9%）；
+- `requantize` 单算子：**331,935 → 29,390 cycles（11.3×）**，去掉了 int↔float 软浮点调用；
+- conv1/conv2 搬 SRAM 后：**452,986 → 279,014**（−38.4%）、**1,068,561 → 652,595**（−38.9%）；
 - 剩余大头仍是 conv2（58.6%），与 MAC 数（33,280）占比一致。
 
 ### 3.4 与静态估算的差异

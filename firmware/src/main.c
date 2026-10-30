@@ -318,7 +318,7 @@ int main(void) {
     printf("bench2 : pool2=%u avg=%u fc=%u softmax=%u memset960B=%u\r\n",
            (unsigned)g_bench[5], (unsigned)g_bench[6], (unsigned)g_bench[7],
            (unsigned)g_bench[8], (unsigned)g_bench[9]);
-    printf("bench3 : requant_float=%u requant_fx=%u (960 元素)\r\n",
+    printf("bench3 : requant_float=%u requant_fx=%u (conv1 输出元素)\r\n",
            (unsigned)g_bench[10], (unsigned)g_bench[11]);
 
     for (;;) {
