@@ -1,5 +1,12 @@
 # edge-inference：面向 MCU 的通用开源边缘推理框架
 
+<p align="center">
+  <a href="https://github.com/xxh666umr/edge-inference/actions/workflows/tests.yml"><img src="https://github.com/xxh666umr/edge-inference/actions/workflows/tests.yml/badge.svg" alt="tests"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="license"></a>
+  <img src="https://img.shields.io/badge/MCU-STM32F103ZET6-orange.svg" alt="MCU">
+  <img src="https://img.shields.io/badge/int8-3%2C195%20params-green.svg" alt="int8">
+</p>
+
 把分类神经网络（CNN / MLP / …）量化为 **int8**，自动导出成 **C 数组 + 纯 C 前向推理**，
 在资源受限的 MCU（本仓库以 **STM32F103ZET6** 为目标）上跑推理、测时延，
 并把**分类结果实时回传到 PC 的 Web 看板**。

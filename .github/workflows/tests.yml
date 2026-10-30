@@ -1,0 +1,29 @@
+name: tests
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  parity:
+    name: C implementation parity
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: python -m pip install --upgrade pip numpy
+
+      - name: conv1d / pool / requantize vs numpy
+        run: python tests/test_conv_parity.py
+
+      - name: exported CNN model vs numpy (300 samples)
+        run: python tests/test_model_parity.py
+
+      - name: GRU / LayerNorm / attention vs numpy
+        run: python tests/test_seq_ops_parity.py
