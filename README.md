@@ -173,6 +173,21 @@ cd firmware
    （见 [docs/序列算子.md](docs/序列算子.md)）；F103 无 FPU 较慢，int8 定点化与端到端 RNN 部署为后续工作。
 5. **开源**：仓库结构、文档、benchmark 已就绪，待发布到 GitHub/Gitee。
 
+## 发布到 GitHub / Gitee
+
+仓库已在本地完成 `git init` 并提交（分支 `main`）：
+
+```bash
+git remote add origin <你的仓库地址>
+git push -u origin main
+```
+
+说明：
+- `data/*.parquet`、`data/*.pkl`、`.deps/`、`firmware/build/` 已在 `.gitignore`，不会上传；
+- `models/*.pt`、`models/parity_features.npz` 会提交（几百 KB，保证测试可复现）；
+- 数据集需按 `data/README.md`、`docs/phase2_调制识别模型.md` 自行下载；
+- 许可证：代码 MIT（见 `LICENSE`），数据集各自遵循其原始协议。
+
 ## 参考
 
 - 数据集：[alirezaaminzadeh/radioml-2018-samples](https://huggingface.co/datasets/alirezaaminzadeh/radioml-2018-samples)（MIT）

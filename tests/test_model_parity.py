@@ -28,7 +28,7 @@ import numpy as np
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 TOOLS_DIR = REPO_ROOT / "tools"
-MODELS_DIR = REPO_ROOT / "models"
+MODELS_DIR = Path(os.environ.get("MODELS_DIR", str(REPO_ROOT / "models")))
 CSRC_DIR = REPO_ROOT / "csrc"
 PROBE_DIR = Path(os.environ.get(
     "MODEL_PROBE_DIR", os.path.join(tempfile.gettempdir(), "edge_inference_model_probe")))
@@ -172,7 +172,11 @@ def main() -> int:
     print("=" * 72)
     print("导出模型 C 推理 vs numpy 量化参考：逐样本对齐测试")
     print(f"仓库     : {REPO_ROOT}")
-    print(f"模型     : {meta_path.relative_to(REPO_ROOT)}")
+    try:
+        shown = meta_path.relative_to(REPO_ROOT)
+    except ValueError:
+        shown = meta_path
+    print(f"模型     : {shown}")
 
     meta = load_meta(meta_path)
     feats, y = build_features()

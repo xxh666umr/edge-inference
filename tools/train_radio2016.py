@@ -191,8 +191,14 @@ def main():
     q = quantize_cnn(model, calib)
     pred_q, _ = quantized_forward_cnn(q, X[te])
     m_int8 = metrics(pred_q, y[te], snr[te])
+    # 与旧 550 条数据（SNR -10~30）可比的口径：只统计 SNR >= -10 的测试样本
+    m10 = snr[te] >= -10
+    acc10_f = float((pred_f[m10] == y[te][m10]).mean()) if m10.any() else float("nan")
+    acc10_q = float((pred_q[m10] == y[te][m10]).mean()) if m10.any() else float("nan")
     print(f"[test] float {m_float['oa']*100:.2f}%  int8 {m_int8['oa']*100:.2f}%  "
           f"(drop {(m_float['oa']-m_int8['oa'])*100:.2f} pt)")
+    print(f"[test] SNR>=-10 subset ({int(m10.sum())} 条): float {acc10_f*100:.2f}%  "
+          f"int8 {acc10_q*100:.2f}%")
     print("[test] float per-SNR: " + ", ".join(
         f"{k}:{v['acc']*100:.0f}%" for k, v in m_float["per_snr"].items()))
 
@@ -230,6 +236,8 @@ def main():
                              "int8_weight_bytes": q["weight_bytes"],
                              "bias_bytes": q["bias_bytes"]},
                    "test_float": m_float, "test_int8": m_int8,
+                   "test_snr_ge_m10": {"n": int(m10.sum()),
+                                       "float": acc10_f, "int8": acc10_q},
                    "quant_drop": m_float["oa"] - m_int8["oa"],
                    "fx": {"conv1_mul": q["conv1"]["fx_mul"],
                           "conv2_mul": q["conv2"]["fx_mul"], "shift": 24}},
