@@ -23,7 +23,7 @@ C 侧做法
 可选环境变量
 ------------
     EDGE_INFERENCE_ROOT  仓库根目录（默认本文件所在 tests/ 的上一级）
-    CLIB_PROBE_DIR       探针中间产物目录（默认 <临时目录>
+    CLIB_PROBE_DIR       探针中间产物目录（默认系统临时目录下的 edge_inference_clib_probe）
     VCVARS64             vcvars64.bat 的绝对路径（默认自动搜索 VS 2022）
 
 退出码：0 = PASS（100% 逐位一致），1 = FAIL。
@@ -34,6 +34,7 @@ import glob
 import os
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 import numpy as np
@@ -56,7 +57,7 @@ CSRC_DIR = REPO_ROOT / "csrc"
 PROBE_DIR = Path(
     os.environ.get(
         "CLIB_PROBE_DIR",
-        r"<临时目录>",
+        os.path.join(tempfile.gettempdir(), "edge_inference_clib_probe"),
     )
 ).resolve()
 

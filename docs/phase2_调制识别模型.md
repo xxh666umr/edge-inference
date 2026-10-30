@@ -133,8 +133,8 @@ CNN 参数少 5 倍但高约 8 个百分点。
 ## 8. 复现
 
 ```powershell
-$py = "<本机路径>"
-$env:PYTHONPATH = "<本机路径>"
+$py = "python"
+$env:PYTHONPATH = "<你的依赖目录>"   # 若依赖装在自定义目录
 cd <仓库路径>
 
 # 训练 + 交叉验证 + 量化 + 导出（约 3~4 分钟，CPU）

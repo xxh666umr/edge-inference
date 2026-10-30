@@ -1,4 +1,4 @@
-﻿"""板子 → PC 实时推理看板（零第三方 Web 框架，仅需 pyserial）。
+"""板子 → PC 实时推理看板（零第三方 Web 框架，仅需 pyserial）。
 
 数据链路：
     STM32F103 --USART1/CH340--> COM 口 --> 本脚本解析 --> HTTP 网页大屏
@@ -27,12 +27,11 @@ import time
 import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-# 依赖引导：优先用仓库内 .deps（若用户 pip install -t .deps pyserial），
-# 其次用上一阶段项目的 .deps（本机已装 pyserial）。都没有则提示 pip install pyserial。
+# 依赖引导：把仓库内 .deps 或环境变量 EDGE_DEPS 指向的目录加入 sys.path；
+# 若都没有，安装 pyserial 即可（pip install pyserial）。
 _ROOT0 = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-for _d in (os.path.join(_ROOT0, ".deps"),
-           r"<本机路径>"):
-    if os.path.isdir(_d) and _d not in sys.path:
+for _d in (os.path.join(_ROOT0, ".deps"), os.environ.get("EDGE_DEPS", "")):
+    if _d and os.path.isdir(_d) and _d not in sys.path:
         sys.path.insert(0, _d)
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -215,7 +214,12 @@ class SerialReader(threading.Thread):
             self.state.set_connection(False, "回放结束")
             return
 
-        import serial  # pyserial
+        try:
+            import serial  # pyserial
+        except ImportError:
+            print("[serial] 缺少 pyserial，请先执行: pip install pyserial", flush=True)
+            self.state.set_connection(False, "缺少 pyserial（pip install pyserial）")
+            return
 
         while not self._stop.is_set():
             port = self.port or self._detect_port()

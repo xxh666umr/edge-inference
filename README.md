@@ -11,9 +11,6 @@
 > PC 逐位对齐、STM32F103 板载实测（**15.5 ms/次**）、结果回传 PC 的实时看板，均已跑通；
 > 另已扩展 GRU / LayerNorm / attention 算子并完成 git 开源准备。
 
-> **路径说明**：文中出现的 `<仓库路径>` 等绝对路径是本机示例，
-> 在别的机器上请替换成实际仓库路径；Python/工具链路径同理。
-
 ## 当前进度
 
 - [x] **Phase 1** PC 侧跑通：int8 推理库 + PyTorch → C 数组导出 + 输出对齐
@@ -102,13 +99,13 @@ edge-inference/
 
 ### 0. 环境
 
-- Python 3.12 + numpy/pandas/pyarrow/torch（本机在 `<本机路径>
+- Python 3.12 + numpy/pandas/pyarrow/torch（`pip install` 或使用你自己的虚拟环境）
 - pyserial（Web 看板用；本机已内置在 `.deps`，`demo/server.py` 会自动加载）
 - MSVC（PC 端编译 C）、ARM GNU Toolchain 14.2 + OpenOCD（固件 / 烧录）
 
 ```powershell
-$py = "<本机路径>"
-$env:PYTHONPATH = "<本机路径>"
+$py = "python"          # 或你的 Python 解释器路径
+# 若依赖装在自定义目录：$env:PYTHONPATH = "<你的依赖目录>"
 cd <仓库路径>
 ```
 

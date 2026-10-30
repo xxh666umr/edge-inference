@@ -10,7 +10,7 @@
 
 用法（Windows PowerShell）：
   $py = "python"
-  $env:PYTHONPATH = "<依赖目录>"
+  $env:PYTHONPATH = "<你的依赖目录>"
   & $py tools\\train_modrec.py --data data\\train-00000-of-00001.parquet --out-dir models
 """
 from __future__ import annotations
