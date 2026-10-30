@@ -101,7 +101,12 @@ def load_meta(path: Path) -> dict:
 
 
 def build_features() -> tuple[np.ndarray, np.ndarray]:
-    """复用训练脚本的预处理：截 1008 -> 功率归一化 -> 平均抽取 126。"""
+    """优先使用导出时保存的 parity_features.npz（任意输入长度）；
+    没有则回退到旧 550 条数据集的 2x126 预处理。"""
+    npz = MODELS_DIR / "parity_features.npz"
+    if npz.is_file():
+        d = np.load(npz)
+        return d["features"].astype(np.float32), d["labels"]
     from train_modrec import decimate, load_iq
 
     data = Path(os.environ.get("MODREC_DATA", str(DATA_DEFAULT)))

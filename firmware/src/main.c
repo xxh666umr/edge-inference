@@ -161,14 +161,17 @@ volatile uint32_t g_bench[12] = {0};   /* 0 conv1 1 req1 2 pool1 3 conv2 4 req2
                                           5 pool2 6 avg 7 fc 8 softmax 9 memset 校准
                                           10 requantize 浮点版  11 requantize 定点版 */
 
-static int32_t b_acc[960];      /* conv1 acc: 16*60 = 960（各阶段复用） */
-static int8_t  b_i8[960];
-static int8_t  b_pool1[480];    /* conv1 输出池化后: 16*30 */
-static int8_t  b_pool2[192];    /* conv2 输出池化后: 32*6 */
+/* conv1 输出长度 = (L - 7)/2 + 1：L=126/128 时分别为 60/61，取 61 作为上限 */
+#define BENCH_CONV1_L_OUT (((MODEL_INPUT_LEN) - 7) / 2 + 1)
+#define BENCH_CONV1_N     (16 * BENCH_CONV1_L_OUT)
+static int32_t b_acc[BENCH_CONV1_N];      /* conv1 acc（各阶段复用） */
+static int8_t  b_i8[BENCH_CONV1_N];
+static int8_t  b_pool1[480];              /* conv1 输出池化后: 16*30 */
+static int8_t  b_pool2[192];              /* conv2 输出池化后: 32*6 */
 static int8_t  b_gap[32];
 static int32_t b_logits[11];
 static float   b_probs[11];
-static int8_t  b_input[2 * 126];
+static int8_t  b_input[2 * MODEL_INPUT_LEN];
 
 static const int8_t  BENCH_W1[224]  = {0};
 static const int32_t BENCH_B1[16]   = {0};
@@ -189,13 +192,13 @@ static const int32_t BENCH_BF[11]   = {0};
 static void bench_stages(void) {
     memcpy(b_input, DEMO_INPUT, sizeof(b_input));
     TIME_IT(9, memset(b_i8, 0, sizeof(b_i8)));
-    TIME_IT(0, conv1d_accumulate(BENCH_W1, BENCH_B1, b_input, b_acc, 2, 16, 126, 7, 2));
-    TIME_IT(10, requantize_relu(b_acc, b_i8, 960, 0.00245f));                  /* 旧：软浮点 */
-    TIME_IT(11, requantize_relu_fx(b_acc, b_i8, 960, MODEL_CONV1_FX_MUL,       /* 新：定点 */
+    TIME_IT(0, conv1d_accumulate(BENCH_W1, BENCH_B1, b_input, b_acc, 2, 16, MODEL_INPUT_LEN, 7, 2));
+    TIME_IT(10, requantize_relu(b_acc, b_i8, BENCH_CONV1_N, 0.00245f));        /* 旧：软浮点 */
+    TIME_IT(11, requantize_relu_fx(b_acc, b_i8, BENCH_CONV1_N, MODEL_CONV1_FX_MUL,  /* 新：定点 */
                                    MODEL_CONV1_FX_SHIFT));
-    TIME_IT(1, requantize_relu_fx(b_acc, b_i8, 960, MODEL_CONV1_FX_MUL,
+    TIME_IT(1, requantize_relu_fx(b_acc, b_i8, BENCH_CONV1_N, MODEL_CONV1_FX_MUL,
                                   MODEL_CONV1_FX_SHIFT));
-    TIME_IT(2, maxpool1d(b_i8, b_pool1, 16, 60, 2, 2));
+    TIME_IT(2, maxpool1d(b_i8, b_pool1, 16, BENCH_CONV1_L_OUT, 2, 2));
     TIME_IT(3, conv1d_accumulate(BENCH_W2, BENCH_B2, b_pool1, b_acc, 16, 32, 30, 5, 2));
     TIME_IT(4, requantize_relu_fx(b_acc, b_i8, 416, MODEL_CONV2_FX_MUL,
                                   MODEL_CONV2_FX_SHIFT));

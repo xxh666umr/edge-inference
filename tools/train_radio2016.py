@@ -163,7 +163,7 @@ def main():
             loss = lossf(model(xb), yb)
             loss.backward()
             opt.step()
-            tot += float(loss) * len(idx)
+            tot += loss.item() * len(idx)
             n += len(idx)
         sched.step()
         if ep >= args.epochs - 5:
