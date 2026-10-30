@@ -32,6 +32,7 @@ from __future__ import annotations
 
 import glob
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -491,6 +492,9 @@ def build_probe_source(conv_cases, req_cases, mp_cases, ap_cases, chain_cases) -
 def compile_and_run_probe() -> str:
     vcvars = find_vcvars64()
     PROBE_DIR.mkdir(parents=True, exist_ok=True)
+    # 把 csrc 复制到 ASCII 探针目录，避免仓库路径含中文时 .bat/cl 编码失败
+    for fn in ("nn.c", "nn.h"):
+        shutil.copy(CSRC_DIR / fn, PROBE_DIR / fn)
     probe_c = PROBE_DIR / "probe.c"
     build_bat = PROBE_DIR / "build_probe.bat"
     probe_exe = PROBE_DIR / "probe.exe"
@@ -506,7 +510,7 @@ def compile_and_run_probe() -> str:
         "  exit /b 1\r\n"
         ")\r\n"
         f'cd /d "{PROBE_DIR}"\r\n'
-        f'cl /nologo /O2 /W3 /utf-8 /I"{CSRC_DIR}" probe.c "{CSRC_DIR / "nn.c"}"'
+        f'cl /nologo /O2 /W3 /utf-8 /I"{PROBE_DIR}" probe.c "{PROBE_DIR / "nn.c"}"'
         " /Fe:probe.exe\r\n"
         "if errorlevel 1 exit /b 1\r\n"
         "exit /b 0\r\n",

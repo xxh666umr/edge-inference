@@ -19,6 +19,7 @@ from __future__ import annotations
 import glob
 import json
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -68,14 +69,22 @@ def find_vcvars64() -> Path:
 
 
 def compile_and_run(vcvars: Path, probe_c: Path, exe: Path, features_bin: Path) -> str:
-    """生成一个 build.bat（call vcvars 后再 cl），在探针目录里编译并运行。"""
+    """生成一个 build.bat（call vcvars 后再 cl），在探针目录里编译并运行。
+
+    先把 model.c/h 与 nn.c/h 复制到 ASCII 探针目录，避免仓库路径含中文时编码问题。
+    """
+    for src, dst in ((MODELS_DIR / "model.c", PROBE_DIR / "model.c"),
+                     (MODELS_DIR / "model.h", PROBE_DIR / "model.h"),
+                     (CSRC_DIR / "nn.c", PROBE_DIR / "nn.c"),
+                     (CSRC_DIR / "nn.h", PROBE_DIR / "nn.h")):
+        shutil.copy(src, dst)
     bat = PROBE_DIR / "build_probe.bat"
     content = (
         "@echo off\r\n"
         f'call "{vcvars}" >nul 2>&1\r\n'
         "if errorlevel 1 exit /b 2\r\n"
-        f'cl /nologo /O2 /utf-8 /W4 /I "{CSRC_DIR}" /I "{MODELS_DIR}" '
-        f'"{probe_c}" "{MODELS_DIR / "model.c"}" "{CSRC_DIR / "nn.c"}" '
+        f'cl /nologo /O2 /utf-8 /W4 /I "{PROBE_DIR}" '
+        f'"{probe_c}" "{PROBE_DIR / "model.c"}" "{PROBE_DIR / "nn.c"}" '
         f'/Fe:"{exe}"\r\n'
     )
     bat.write_text(content, encoding="ascii")
